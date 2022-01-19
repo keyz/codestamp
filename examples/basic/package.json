@@ -1,0 +1,12 @@
+{
+  "name": "basic",
+  "private": true,
+  "scripts": {
+    "codegen": "node codegen.js",
+    "codestamp": "codestamp output.ts --deps 'source.json,codegen.js'",
+    "codestamp:write": "codestamp output.ts --deps 'source.json,codegen.js' --write"
+  },
+  "dependencies": {
+    "codestamp": "*"
+  }
+}

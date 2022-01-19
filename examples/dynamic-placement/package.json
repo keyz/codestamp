@@ -1,0 +1,12 @@
+{
+  "name": "dynamic-placement",
+  "private": true,
+  "scripts": {
+    "codegen": "node codegen.js",
+    "codestamp": "node stampcheck.js",
+    "codestamp:write": "node stampcheck.js --write"
+  },
+  "dependencies": {
+    "codestamp": "*"
+  }
+}

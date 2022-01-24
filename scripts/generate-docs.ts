@@ -79,7 +79,7 @@ async function stamp({
       contentLineList.splice(
         insertIndex,
         0,
-        `- 🙋 [scripts/generate-docs.ts](scripts/generate-docs.ts) The README file you're reading is generated and verified by \`codestamp\`!`,
+        `- 🙋 [\`scripts/generate-docs.ts\`](scripts/generate-docs.ts) The README file you're reading is generated and verified by \`codestamp\`!`,
         `  - And here's the stamp: \`${stamp}\``
       );
 

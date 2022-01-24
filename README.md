@@ -9,7 +9,7 @@
 1️⃣ Codegen your files as usual, then run `codestamp` to add a stamp.
 
 - `codestamp` computes a deterministic hash (e.g., `CodeStamp<<​c1aa4ff2ac747d1192773354ad64d122​>>`) from the contents of your target file and all dependencies.
-- By default, `codestamp` inserts the stamp as a banner comment. You can use the CLI (`--template`) to make small tweaks, or use the Node.js API to dynamically place the stamp (see [`examples/real-world/stamp.js`](examples/real-world/stamp.js)).
+- By default, `codestamp` inserts the stamp as a banner comment. You can use the CLI (`--template`) to make small tweaks, or use the Node.js API to dynamically place the stamp (see [`examples/dynamic-json/stamp.js`](examples/dynamic-json/stamp.js)).
 
 2️⃣ Run `codestamp` as a Git [pre-commit hook](https://github.com/typicode/husky) and on CI; treat it as a linter for your codegen'd files.
 
@@ -19,11 +19,11 @@
 
 ## Examples
 
-- [examples/basic](examples/basic/package.json): Simple stamping via the CLI.
-- [examples/template-python](examples/template-python/package.json): Use template string to add a Python banner comment via the CLI.
-- [examples/real-world](examples/real-world/stamp.js): Use the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
-- 🙋 [scripts/generate-docs.ts](scripts/generate-docs.ts) The README file you're reading is generated and verified by `codestamp`!
-  - And here's the stamp: `CodeStamp<<b88e3218d58874db68435b9947865ba9>>`
+- [`examples/basic`](examples/basic/package.json): Simple stamping via the CLI.
+- [`examples/template-python`](examples/template-python/package.json): Use template string to add a Python banner comment via the CLI.
+- [`examples/dynamic-json`](examples/dynamic-json/stamp.js): Use the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
+- 🙋 [`scripts/generate-docs.ts`](scripts/generate-docs.ts) The README file you're reading is generated and verified by `codestamp`!
+  - And here's the stamp: `CodeStamp<<7f4ffde90274b9e0531d4536b11832b6>>`
 
 ## Install
 
@@ -122,7 +122,9 @@ $ echo $?
 
 `runner(...)` reads contents from disk and verifies the stamp. The CLI is a thin wrapper around `runner(...)`.
 
-[examples/real-world](examples/real-world/stamp.js) is a good example of using the `runner`. It uses the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
+[`examples/dynamic-json`](examples/dynamic-json/stamp.js) is a simple example of using the `runner`. It uses the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
+
+You can also reference how this README/documentation file is generated, stamped, and verified in [`scripts/generate-docs.ts`](scripts/generate-docs.ts).
 
 <!-- <DOCSTART TARGET runner> -->
 

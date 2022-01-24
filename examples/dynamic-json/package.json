@@ -1,5 +1,5 @@
 {
-  "name": "real-world",
+  "name": "dynamic-json",
   "private": true,
   "scripts": {
     "codegen": "node codegen.js",

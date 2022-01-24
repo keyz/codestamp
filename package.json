@@ -1,6 +1,6 @@
 {
   "name": "codestamp",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Stamp and verify your files and contents",
   "source": "src/index.ts",
   "bin": {

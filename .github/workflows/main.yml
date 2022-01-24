@@ -36,5 +36,9 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: npm run test
+      - run: npm run prettier:check
+
+      - run: npm run docs:check # ts-node fatals on 12.x (?)
+        if: ${{ matrix.node-version == '16.x' }}
 
       - run: git status --porcelain; test -z "$( git status --porcelain )"

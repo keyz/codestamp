@@ -147,8 +147,8 @@ export type TRunnerResult = DistributiveIntersection<
  */
 export async function runner({
   targetFilePath,
-  shouldWrite,
   dependencyGlobList,
+  shouldWrite,
   initialStampPlacer,
   fileTransformerForHashing = ({ content }) => content,
   cwd = process.cwd(),

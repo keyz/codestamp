@@ -1,6 +1,6 @@
 # codestamp - Stamp and verify your files and contents
 
-[![npm](https://img.shields.io/npm/v/codestamp)](https://github.com/keyz/codestamp) [![main](https://github.com/keyz/codestamp/actions/workflows/main.yml/badge.svg)](https://github.com/keyz/codestamp/actions/workflows/main.yml)
+[![npm](https://img.shields.io/npm/v/codestamp)](https://www.npmjs.com/package/codestamp) [![main](https://github.com/keyz/codestamp/actions/workflows/main.yml/badge.svg)](https://github.com/keyz/codestamp/actions/workflows/main.yml)
 
 `codestamp` is a tool for verifying the integrity of your files. It's most useful for guarding codegen'd files against unintentional manual edits, but it also can be used for signing individual files.
 

@@ -1,2 +1,2 @@
-/* @generated CodeStamp<<0c6b2060953c76cc9aaa18a3e215115b>> */
+/* @generated CodeStamp<<fe6319878a968f46b32876a9c0407462>> */
 type TPlayer = "Stephen Curry" | "LeBron James" | "Klay Thompson";

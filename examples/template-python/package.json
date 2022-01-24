@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "codegen": "node codegen.js",
-    "codestamp": "codestamp output.py --deps 'source.json,codegen.js' --template '# @generated DO NOT EDIT BY HAND %STAMP%\n%CONTENT%'",
-    "codestamp:write": "codestamp output.py --deps 'source.json,codegen.js' --template '# @generated DO NOT EDIT BY HAND %STAMP%\n%CONTENT%' --write"
+    "codestamp": "codestamp output.py --deps '../source.json,codegen.js' --template '# @generated DO NOT EDIT BY HAND %STAMP%\n%CONTENT%'",
+    "codestamp:write": "codestamp output.py --deps '../source.json,codegen.js' --template '# @generated DO NOT EDIT BY HAND %STAMP%\n%CONTENT%' --write"
   },
   "dependencies": {
     "codestamp": "*"

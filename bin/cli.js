@@ -3,8 +3,12 @@
 
 const chalk = require("chalk");
 const parseArgs = require("minimist");
-const { version } = require("../package.json");
+const { version: packageVersion } = require("../package.json");
 const { runner } = require("../dist/index");
+
+const isJestTestEnv = process.env.JEST_TEST_ENV === "true";
+
+const version = isJestTestEnv ? "<MOCKED>" : packageVersion;
 
 const help =
   reindent(`
@@ -21,14 +25,14 @@ const help =
 
     ${chalk.bold("Options")}
         -w, --write       Rewrite the file in-place. Without this flag, codestamp
-        [boolean]         runs in verification mode: it prints the diff to stdout 
-                          and \`exit(1)\` when the stamp is no longer valid.
+        [boolean]         runs in verification mode: it prints the diff to
+                          \`stderr\` and \`exit(1)\` when the stamp is invalid.
 
         -d, --deps        One or more file paths or globs. The stamp hash is
         [comma-separated  computed from the target file's content and all 
         string]           dependencies.
 
-                          Make sure to quote the globs to let codestamp expands
+                          Make sure to quote the globs to let codestamp expand
                           the globs, rather than your shell.
 
                           Examples:
@@ -37,7 +41,7 @@ const help =
                           $ codestamp target.ts --deps 'data/**/*.json,types/*.ts'
 
         -t, --template    A template string for placing the stamp. codestamp will
-        [string]          replace \`%STAMP%\` with the stamp hash, and \`%CONTENT%\`
+        [string]          replace \`%STAMP%\` with the stamp, and \`%CONTENT%\`
                           with the rest of content.
 
                           Use the Node.js API to dynamically place the stamp.
@@ -46,6 +50,9 @@ const help =
                           $ codestamp target.py -t '# @codegen %STAMP%\\n%CONTENT%'
 
         -h, --help        This help guide.
+
+    ${chalk.bold("Docs")}
+        ${chalk.underline("https://github.com/keyz/codestamp")}
 
     ${chalk.bold("Example")}
         $ ./your-script-that-generates-types --from ffi.rs,data.json
@@ -90,15 +97,21 @@ main().catch((error) => {
 
 async function main() {
   const argv = parseArgs(process.argv.slice(2), {
-    boolean: ["write", "help"],
+    boolean: ["write", "help", "version"],
     string: ["deps", "template"],
     alias: {
       w: "write",
       d: "deps",
       t: "template",
       h: "help",
+      v: "version",
     },
   });
+
+  if (argv.version) {
+    console.log(version);
+    return;
+  }
 
   if (argv.help) {
     console.log(help);
@@ -112,27 +125,53 @@ async function main() {
       Run \`codestamp --help\` to see the quick guide and examples.
     `);
 
-    console.log(errorMessage);
+    console.error(errorMessage);
     process.exit(1);
   }
 
   const targetFilePath = String(argv._[0]);
   const shouldWrite = Boolean(argv.write);
+  if (argv.deps === "") {
+    const errorMessage = reindent(`
+      CodeStamp Error: Received empty value for option \`-d, --deps\`.
+
+      Run \`codestamp --help\` to see the quick guide and examples.
+    `);
+
+    console.error(errorMessage);
+    process.exit(1);
+  }
+
+  if (argv.template === "") {
+    const errorMessage = reindent(`
+      CodeStamp Error: Received empty value for option \`-t, --template\`.
+
+      Run \`codestamp --help\` to see the quick guide and examples.
+    `);
+
+    console.error(errorMessage);
+    process.exit(1);
+  }
+
   const rawDeps = argv.deps || "";
   const rawTemplate = argv.template || "";
 
-  // TODO: Write a test
   const dependencyGlobList = rawDeps.split(",").filter(Boolean);
-  const placeInitialStamp = Boolean(rawTemplate)
+  const initialStampPlacer = Boolean(rawTemplate)
     ? undoUnescape(rawTemplate)
     : undefined;
 
-  runner({
+  const result = await runner({
     targetFilePath,
     shouldWrite,
     dependencyGlobList,
-    placeInitialStamp,
+    initialStampPlacer,
+    silent: false,
   });
+
+  if (result.shouldFatalIfDesired) {
+    process.exit(1);
+  }
 }
 
 /**

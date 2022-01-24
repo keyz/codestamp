@@ -1,10 +1,10 @@
 {
-  "name": "dynamic-placement",
+  "name": "real-world",
   "private": true,
   "scripts": {
     "codegen": "node codegen.js",
-    "codestamp": "node stampcheck.js",
-    "codestamp:write": "node stampcheck.js --write"
+    "codestamp": "node stamp.js",
+    "codestamp:write": "node stamp.js --write"
   },
   "dependencies": {
     "codestamp": "*"

@@ -1,86 +1,75 @@
 import { createHash } from "crypto";
-import { memo } from "./utils";
+import { memo, nullThrows } from "./utils";
 import replaceAll from "replace-string"; // For Node v12.x
 
 const HASH_LENGTH = 32;
 
-const getHash = memo((input: string): string => {
-  return createHash("sha256")
+const getHashedStamp = memo((input: string): string => {
+  const stampHash = createHash("sha256")
     .update(input, "utf-8")
     .digest("hex")
     .substring(0, HASH_LENGTH);
+
+  return `CodeStamp<<${stampHash}>>`;
 });
 
-const PLACEHOLDER_HASH_ONLY = getHash("placeholder");
-const PLACEHOLDER_STAMP = `CodeStamp<<${PLACEHOLDER_HASH_ONLY}>>`;
-const STAMP_REGEX = /(?<left>CodeStamp<<)(?<hash>[a-f0-9]+)(?<right>>>)/;
+// CodeStamp<<4097889236a2af26c293033feb964c4c>>
+const PLACEHOLDER_STAMP = getHashedStamp("placeholder");
+const STAMP_REGEX = /(?<stamp>CodeStamp<<[a-f0-9]+>>)/;
 const STAMP_REGEX_GLOBAL = new RegExp(STAMP_REGEX, "g");
 
+// <DOCSTART SOURCE TStampPlacer>
 /**
- * Parameter for {@link verifyStamp}.
- */
-export type TVerifyStampParam = {
-  /**
-   * A list of strings that are contents of dependencies.
-   *
-   * Pass an empty array if there are no dependencies.
-   */
-  dependencyContentList: Array<string>;
-  /**
-   * The content that you want to verify.
-   */
-  targetContent: string;
-};
-
-/**
- * Verify the stamp within a string.
+ * A function or a template string for placing the stamp. It's
+ * recommended to use the function form when using the Node API.
  *
- * @example
+ * Use it to specify where the stamp should be placed **initially**.
+ * Updating the placer on content that already uses a **custom**
+ * placer has no effect, because `codestamp` cannot guarantee a
+ * deterministic update. In this case, although the format won't
+ * change, the existing stamp will always be updated correctly.
+ *
+ * Please regenerate the file when you update the placer from another
+ * custom placer.
+ *
+ * NOTE: A single and complete stamp must be returned as-is from the
+ * function or included in the string.
+ *
+ * - Function type: `({content: string, stamp: string}) => string`.
+ * - Template string: A string that contains two special formatters,
+ *   `%STAMP%` and `%CONTENT%`. `codestamp` will replace `%STAMP%`
+ *   with the stamp, and `%CONTENT%` with the rest of content.
+ *
+ * @example Add a JS banner comment
  *
  * ```typescript
- * verifyStamp({
- *   dependencyContentList: ["a", "b", "c"],
- *   targetContent: "CodeStamp<<c2bc05f0d406fdc32e9bd617b5b0903a>>",
- * })
+ * ({ content, stamp }) => `// @generated ${stamp} DO NOT EDIT BY HAND\n${content}`;
+ *
+ * // Template string equivalent:
+ * `// @generated %STAMP% DO NOT EDIT BY HAND\n%CONTENT%`
  * ```
  *
- * @param param - See {@link TVerifyStampParam}
- * @throws When the stamp is invalid
+ * @example Add a Python banner comment
+ *
+ * ```typescript
+ * ({ content, stamp }) => `# @codegen ${stamp}\n${content}`;
+ *
+ * // Template string equivalent:
+ * `# @codegen %STAMP%\n%CONTENT%`
+ * ```
+ *
+ * @example Dynamically place the stamp as a JSON field
+ *
+ * ```typescript
+ * ({ content, stamp }) => {
+ *   const stampedObject = {...JSON.parse(content), stamp};
+ *   return JSON.stringify(stampedObject, null, 2);
+ * }
+ * ```
  */
-function verifyStamp({
-  dependencyContentList,
-  targetContent,
-}: TVerifyStampParam): void {
-  const matchList = [...targetContent.matchAll(STAMP_REGEX_GLOBAL)];
+export type TStampPlacer = TStampPlacerFn | string;
 
-  if (matchList.length < 1) {
-    throw new Error(
-      `CodeStamp: Unable to find stamp in ${JSON.stringify(targetContent)}`
-    );
-  } else if (matchList.length > 1) {
-    throwOnMultipleStampsFound({ matchList, content: targetContent });
-  }
-
-  const hashInTarget = matchList[0]?.groups?.hash;
-  const targetContentWithPlaceholderHash = updateHashOnly({
-    content: targetContent,
-    newStampHash: PLACEHOLDER_HASH_ONLY,
-  });
-
-  const hash = getHash(
-    JSON.stringify([...dependencyContentList, targetContentWithPlaceholderHash])
-  );
-
-  if (hashInTarget !== hash) {
-    throw new Error(
-      `CodeStamp: Stamps don't match.\nExpected: ${JSON.stringify(
-        hash
-      )}\nReceived: ${JSON.stringify(hashInTarget)}`
-    );
-  }
-}
-
-export type TStampPlacer = ({
+type TStampPlacerFn = ({
   content,
   stamp,
 }: {
@@ -88,11 +77,11 @@ export type TStampPlacer = ({
   stamp: string;
 }) => string;
 
-const defaultPlaceInitialStamp: TStampPlacer = ({ content, stamp }) => {
-  return `/* @generated ${stamp} */\n${content}`;
-};
+const defaultInitialStampPlacer: TStampPlacerFn = ({ content, stamp }) =>
+  `/* @generated ${stamp} */\n${content}`;
+// <DOCEND SOURCE TStampPlacer>
 
-function getStampPlacerFromTemplate(template: string): TStampPlacer {
+function getStampPlacerFromTemplate(template: string): TStampPlacerFn {
   return ({ content, stamp }) => {
     return replaceAll(
       replaceAll(template, "%STAMP%", stamp),
@@ -102,6 +91,7 @@ function getStampPlacerFromTemplate(template: string): TStampPlacer {
   };
 }
 
+// <DOCSTART SOURCE TApplyStampParam>
 /**
  * Parameter for {@link applyStamp}.
  */
@@ -110,168 +100,312 @@ export type TApplyStampParam = {
    * A list of strings that are contents of dependencies.
    *
    * Pass an empty array if there are no dependencies.
+   *
+   * NOTE: order matters.
    */
   dependencyContentList: Array<string>;
   /**
-   * The content that you want to stamp.
+   * The content to stamp.
    */
   targetContent: string;
   /**
-   * A function or a template string for placing the stamp. It's recommended
-   * to use the function form when using the Node API.
+   * Use it to specify where the stamp should be placed **initially**.
+   * See {@link TStampPlacer}.
    *
-   * - Function type: `(param: {content: string, stamp: string}) => string`.
-   * - Template string: A string that contains two special formatters,
-   *   `%STAMP%` and `%CONTENT%`. `codestamp` will replace `%STAMP%` with
-   *   the stamp hash, and `%CONTENT%` with the rest of content.
-   *
-   * NOTE: The stamp must be returned from the function or included in the string.
-   *
-   * @example Add a JS banner comment
-   *
-   * ```typescript
-   * ({ content, stamp }) => `// @generated ${stamp} DO NOT EDIT BY HAND\n${content}`;
-   * ```
-   *
-   * @example Add a Python banner comment
-   *
-   * ```typescript
-   * ({ content, stamp }) => `# @codegen ${stamp}\n${content}`;
-   * ```
-   *
-   * @example Dynamically place the stamp as a JSON field
-   *
-   * ```typescript
-   * ({ content, stamp }) => {
-   *   const stampedObject = {...JSON.parse(content), stamp};
-   *   return JSON.stringify(stampedObject, null, 2);
-   * }
-   * ```
+   * @defaultValue {@link defaultInitialStampPlacer}
    */
-  placeInitialStamp?: TStampPlacer | string;
+  initialStampPlacer?: TStampPlacer;
+  /**
+   * Use it to ignore insignificant changes and make the stamp less
+   * sensitive.
+   *
+   * Content will be transformed before hashing. The transformer only
+   * applies to hashing (the stamp) and does not affect the final
+   * content output.
+   *
+   * @example Ignore spacing and new lines in JSON
+   *
+   * ```typescript
+   * ({ content }) => JSON.stringify(JSON.parse(content))
+   * ```
+   *
+   * @example Always exclude the stamp line from hashing
+   *
+   * ```typescript
+   * ({ content, stamp }) =>
+   *   content.split("\n").filter((line) => !line.includes(stamp)).join("\n")
+   * ```
+   *
+   * @defaultValue `({content}) => content`
+   */
+  contentTransformerForHashing?: (param: {
+    content: string;
+    stamp: string;
+  }) => string;
 };
+// <DOCEND SOURCE TApplyStampParam>
 
+// <DOCSTART SOURCE TApplyStampResult>
 /**
- * Given a list of dependencies and a target content, deterministically add or
- * update a stamp and return the string.
- *
- * @example
- *
- * ```typescript
- * applyStamp({
- *   dependencyContentList: [],
- *   targetContent: "foobar",
- *   placeInitialStamp: ({ content, stamp }) => `// @codegen ${stamp}\n${content}`,
- * })
- * ```
+ * Return type for {@link applyStamp}. This is a discriminated union.
+ */
+export type TApplyStampResult =
+  /**
+   * Content is legit.
+   */
+  | {
+      status: "OK";
+      /** The stamp extracted from content */
+      stamp: string;
+    }
+  /**
+   * Content didn't have a stamp; a new stamp is added.
+   */
+  | {
+      status: "NEW";
+      /** The new stamp being added */
+      newStamp: string;
+      /** Value of the updated content */
+      newContent: string;
+    }
+  /**
+   * Stamp needs an update.
+   */
+  | {
+      status: "UPDATE";
+      /** The new/expected stamp */
+      newStamp: string;
+      /** The old/current stamp */
+      oldStamp: string;
+      /** Value of the updated content */
+      newContent: string;
+    }
+  /**
+   * The content includes multiple stamps. This is likely because the
+   * content was manually updated. `codestamp` needs to bail out
+   * because it cannot guarantee a deterministic update.
+   */
+  | {
+      status: "ERROR";
+      errorType: "MULTIPLE_STAMPS";
+      errorDescription: string;
+      /** >= 2 stamps */
+      stampList: Array<string>;
+    }
+  /**
+   * Placer didn't return a string that contains the stamp, or
+   * returned multiple stamps.
+   */
+  | {
+      status: "ERROR";
+      errorType: "STAMP_PLACER";
+      errorDescription: string;
+      placer: string;
+      placerReturnValue: any;
+    };
+// <DOCEND SOURCE TApplyStampResult>
+
+// <DOCSTART SOURCE applyStamp>
+/**
+ * Given a list of dependencies and a target content,
+ * deterministically add or update a stamp.
  *
  * @param param - See {@link TApplyStampParam}
- * @returns Newly stamped content string
+ * @returns See {@link TApplyStampResult}
  */
-function applyStamp({
+export function applyStamp({
   dependencyContentList,
   targetContent,
-  placeInitialStamp,
-}: TApplyStampParam): string {
-  let placer = defaultPlaceInitialStamp;
-
-  if (typeof placeInitialStamp === "string") {
-    placer = getStampPlacerFromTemplate(placeInitialStamp);
-  } else if (typeof placeInitialStamp === "function") {
-    placer = placeInitialStamp;
-  }
-
-  let targetContentWithPlaceholderHash = "";
+  initialStampPlacer,
+  contentTransformerForHashing = ({ content }) => content,
+}: TApplyStampParam): TApplyStampResult {
+  // <DOCEND SOURCE applyStamp>
+  let newContentWithPlaceholderStamp: string;
 
   const matchList = [...targetContent.matchAll(STAMP_REGEX_GLOBAL)];
 
-  if (matchList.length < 1) {
-    // Fresh content
-    targetContentWithPlaceholderHash = placer({
+  if (matchList.length === 0) {
+    // "NEW" - Fresh content, apply placer
+    const maybeResult = applyPlacer({
       content: targetContent,
       stamp: PLACEHOLDER_STAMP,
+      placer: initialStampPlacer,
     });
 
-    if (!STAMP_REGEX.test(targetContentWithPlaceholderHash ?? "")) {
-      if (typeof placeInitialStamp === "string") {
-        throw new Error(
-          `CodeStamp: \`placeInitialStamp\` must contain the stamp.\nTemplate: ${JSON.stringify(
-            placeInitialStamp
-          )}\nReturn value: ${JSON.stringify(targetContentWithPlaceholderHash)}`
-        );
-      } else {
-        throw new Error(
-          `CodeStamp: \`placeInitialStamp(...)\` must return a string that contains the stamp.\nReturn value: ${JSON.stringify(
-            targetContentWithPlaceholderHash
-          )}`
-        );
-      }
+    if (!maybeResult.ok) {
+      return maybeResult.error;
     }
+
+    newContentWithPlaceholderStamp = maybeResult.value;
   } else if (matchList.length > 1) {
-    throwOnMultipleStampsFound({ matchList, content: targetContent });
+    // "ERROR"
+    return {
+      status: "ERROR",
+      errorType: "MULTIPLE_STAMPS",
+      errorDescription: [
+        "Found multiple stamps. This is likely because the content was manually updated.",
+        "`codestamp` needs to bail out because it cannot guarantee a deterministic update.",
+        "Please regenerate the file.",
+      ].join(" "),
+      stampList: matchList.map((item) => nullThrows(item?.groups?.stamp)),
+    };
   } else {
-    targetContentWithPlaceholderHash = updateHashOnly({
+    // "UPDATE"
+    newContentWithPlaceholderStamp = updateStamp({
       content: targetContent,
-      newStampHash: PLACEHOLDER_HASH_ONLY,
+      newStamp: PLACEHOLDER_STAMP,
     });
 
-    if (placeInitialStamp != null) {
-      // Attempt to rewrite the stamp placement
+    if (initialStampPlacer != null) {
+      // Attempt to rewrite the stamp placement from default -> custom
 
-      const contentWithoutDefaultStamp =
-        targetContentWithPlaceholderHash.replace(
-          defaultPlaceInitialStamp({ content: "", stamp: PLACEHOLDER_STAMP }),
-          ""
-        );
+      const contentWithoutDefaultStamp = newContentWithPlaceholderStamp.replace(
+        defaultInitialStampPlacer({ content: "", stamp: PLACEHOLDER_STAMP }),
+        ""
+      );
 
-      if (contentWithoutDefaultStamp !== targetContentWithPlaceholderHash) {
+      if (contentWithoutDefaultStamp !== newContentWithPlaceholderStamp) {
         // Great, the previous stamp placement was the default one.
         // Remove it and apply the new stamp placer
-        targetContentWithPlaceholderHash = placer({
+        const maybeResult = applyPlacer({
           content: contentWithoutDefaultStamp,
           stamp: PLACEHOLDER_STAMP,
+          placer: initialStampPlacer,
         });
+
+        if (!maybeResult.ok) {
+          return maybeResult.error;
+        }
+
+        newContentWithPlaceholderStamp = maybeResult.value;
       }
     }
   }
 
-  const hash = getHash(
-    JSON.stringify([...dependencyContentList, targetContentWithPlaceholderHash])
+  // Compute new hash
+  const newStamp = getHashedStamp(
+    JSON.stringify([
+      ...dependencyContentList,
+      contentTransformerForHashing({
+        content: newContentWithPlaceholderStamp,
+        stamp: PLACEHOLDER_STAMP,
+      }),
+    ])
   );
 
-  return updateHashOnly({
-    content: targetContentWithPlaceholderHash,
-    newStampHash: hash,
+  const newContent = updateStamp({
+    content: newContentWithPlaceholderStamp,
+    newStamp,
   });
+
+  if (newContent === targetContent) {
+    return {
+      status: "OK",
+      stamp: newStamp,
+    };
+  }
+
+  if (matchList.length < 1) {
+    return {
+      status: "NEW",
+      newStamp,
+      newContent,
+    };
+  }
+
+  const matchItem = matchList[0];
+  return {
+    status: "UPDATE",
+    newStamp,
+    oldStamp: nullThrows(matchItem?.groups?.stamp),
+    newContent,
+  };
+}
+
+type MaybeResult<V, E> =
+  | { ok: true; value: V }
+  //
+  | { ok: false; error: E };
+
+function applyPlacer({
+  content,
+  stamp,
+  placer,
+}: {
+  content: string;
+  stamp: string;
+  placer: TStampPlacer | undefined;
+}): MaybeResult<
+  string,
+  Extract<TApplyStampResult, { status: "ERROR"; errorType: "STAMP_PLACER" }>
+> {
+  let resolvedPlacer: TStampPlacerFn;
+
+  if (placer === undefined) {
+    resolvedPlacer = defaultInitialStampPlacer;
+  } else if (typeof placer === "string") {
+    resolvedPlacer = getStampPlacerFromTemplate(placer);
+  } else if (typeof placer === "function") {
+    resolvedPlacer = placer;
+  } else {
+    return {
+      ok: false,
+      error: {
+        status: "ERROR",
+        errorType: "STAMP_PLACER",
+        errorDescription: "`initialStampPlacer` is not a string or a function.",
+        placer: String(placer),
+        placerReturnValue: undefined,
+      },
+    };
+  }
+
+  const placerReturnValue = resolvedPlacer({ content, stamp });
+
+  if (typeof placerReturnValue !== "string") {
+    return {
+      ok: false,
+      error: {
+        status: "ERROR",
+        errorType: "STAMP_PLACER",
+        errorDescription: "`initialStampPlacer` didn't return a stamp.",
+        placer: String(placer),
+        placerReturnValue,
+      },
+    };
+  }
+
+  const matchList = [...placerReturnValue.matchAll(STAMP_REGEX_GLOBAL)];
+
+  if (matchList.length !== 1) {
+    return {
+      ok: false,
+      error: {
+        status: "ERROR",
+        errorType: "STAMP_PLACER",
+        errorDescription:
+          matchList.length === 0
+            ? "`initialStampPlacer` didn't return a stamp."
+            : "`initialStampPlacer` returned multiple stamps.",
+        placer: String(placer),
+        placerReturnValue,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    value: placerReturnValue,
+  };
 }
 
 // Assumes the content contains a single stamp
-function updateHashOnly({
+function updateStamp({
   content,
-  newStampHash,
+  newStamp,
 }: {
   content: string;
-  newStampHash: string;
+  newStamp: string;
 }): string {
-  return content.replace(STAMP_REGEX, `$<left>${newStampHash}$<right>`);
+  return content.replace(STAMP_REGEX, newStamp);
 }
-
-function throwOnMultipleStampsFound({
-  matchList,
-  content,
-}: {
-  matchList: Array<RegExpMatchArray>;
-  content: string;
-}) {
-  const stampsFound = matchList
-    .map((item) => JSON.stringify(`<<${item.groups?.hash ?? "Unknown"}>>`))
-    .join(", ");
-
-  throw new Error(
-    `CodeStamp: Found multiple stamps. This is likely because you manually updated the content. Please regenerate the file.\nStamps: ${stampsFound}\nContent: ${JSON.stringify(
-      content
-    )}`
-  );
-}
-
-export { verifyStamp, applyStamp };

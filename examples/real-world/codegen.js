@@ -1,7 +1,7 @@
 // @ts-check
 const fs = require("fs");
 const path = require("path");
-const data = require("./source.json");
+const data = require("../source.json");
 
 main();
 

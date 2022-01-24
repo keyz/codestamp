@@ -1,20 +1,17 @@
-import shell from "shelljs";
-
-beforeAll(() => {
-  goodExec("npm run build");
-});
+import { fatalExec } from "./testUtils";
 
 test("Examples should be legit", () => {
-  goodExec("npm run codegen --workspaces");
-  goodExec("npm run codestamp:write --workspaces");
-  goodExec("npm run codestamp --workspaces");
-});
+  fatalExec("npm run codegen --workspaces");
 
-function goodExec(command: string) {
-  expect(() => {
-    shell.exec(command, {
-      silent: true,
-      fatal: true,
-    });
-  }).not.toThrow();
-}
+  expect(fatalExec("npm run codestamp:write --workspaces")).toMatch(
+    "CodeStamp: 🔏 Stamped `output.json`."
+  );
+
+  fatalExec("npm run prettier:write");
+
+  expect(fatalExec("npm run codestamp --workspaces")).toMatch(
+    "CodeStamp: ✅ Verified `output.json`."
+  );
+
+  fatalExec("npm run prettier:check");
+});

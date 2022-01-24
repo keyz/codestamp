@@ -1,8 +1,19 @@
-import { applyStamp, verifyStamp } from "./core";
+import { applyStamp } from "./core";
 import { runner } from "./runner";
-import type { TApplyStampParam, TStampPlacer, TVerifyStampParam } from "./core";
-import type { TRunnerParam } from "./runner";
+import type { TApplyStampParam, TApplyStampResult, TStampPlacer } from "./core";
+import type {
+  TRunnerParam,
+  TRunnerResult,
+  TRunnerFileTransformerForHashing,
+} from "./runner";
 
-export { runner, applyStamp, verifyStamp };
+export { runner, applyStamp };
 
-export type { TRunnerParam, TApplyStampParam, TStampPlacer, TVerifyStampParam };
+export type {
+  TRunnerParam,
+  TRunnerResult,
+  TRunnerFileTransformerForHashing,
+  TApplyStampParam,
+  TApplyStampResult,
+  TStampPlacer,
+};

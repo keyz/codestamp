@@ -9,5 +9,10 @@
     "module": "ESNext",
     "moduleResolution": "Node",
     "noEmit": true
+  },
+  "ts-node": {
+    "compilerOptions": {
+      "module": "CommonJS"
+    }
   }
 }

@@ -16,9 +16,9 @@ const help =
       "codestamp"
     )} - Stamp and verify your files and contents [version ${version}]
 
-    codestamp is a tool for verifying the integrity of your files. It's most
-    useful for guarding codegen'd files against unintentional manual edits, 
-    but it also can be used for signing individual files.
+    A language-agnostic tool for signing and verifying the integrity of your
+    files. It's most useful for guarding codegen'd files against unintentional
+    manual edits, but it also can be used for signing individual files.
 
     ${chalk.bold("Usage")}
         $ codestamp target_file [options]
@@ -29,7 +29,7 @@ const help =
                           \`stderr\` and \`exit(1)\` when the stamp is invalid.
 
         -d, --deps        One or more file paths or globs. The stamp hash is
-        [comma-separated  computed from the target file's content and all 
+        [comma-separated  computed from the target file's content and all
         string]           dependencies.
 
                           Make sure to quote the globs to let codestamp expand
@@ -60,7 +60,7 @@ const help =
 
         $ cat types.ts
         type FFI = ...
-        
+
         $ codestamp types.ts --deps ffi.rs,data.json
         ${chalk.green(
           "+ /* @generated CodeStamp<<c1aa4ff2ac747d1192773354ad64d122>> */"
@@ -85,7 +85,7 @@ const help =
           "+ /* @generated CodeStamp<<64adca472a2638d8c915fb5d83c688f7>> */"
         )}
           type FFI = ...
-        
+
         $ echo $?
         1
   `) + "\n";

@@ -2,7 +2,9 @@
 
 [![npm](https://img.shields.io/npm/v/codestamp)](https://www.npmjs.com/package/codestamp) [![main](https://github.com/keyz/codestamp/actions/workflows/main.yml/badge.svg)](https://github.com/keyz/codestamp/actions/workflows/main.yml)
 
-`codestamp` is a tool for verifying the integrity of your files. It's most useful for guarding codegen'd files against unintentional manual edits, but it also can be used for signing individual files.
+`codestamp` is a language-agnostic tool for signing and verifying the integrity of your files. It's most useful for guarding codegen'd files against unintentional manual edits, but it also can be used for signing individual files.
+
+If you're new to codegen, ["Writing code that writes code — with Hack Codegen"](https://engineering.fb.com/2015/08/20/open-source/writing-code-that-writes-code-with-hack-codegen/) is a good read.
 
 ## Recommended workflow
 
@@ -23,7 +25,7 @@
 - [`examples/template-python`](examples/template-python/package.json): Use template string to add a Python banner comment via the CLI.
 - [`examples/dynamic-json`](examples/dynamic-json/stamp.js): Use the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
 - 🙋 [`scripts/generate-docs.ts`](scripts/generate-docs.ts): The README file you're reading is generated and verified by `codestamp`!
-  - And here's the stamp: `CodeStamp<<5cd5b5943e7bf777617569335127c5b2>>`
+  - And here's the stamp: `CodeStamp<<fc8e58b95bd9dc1638510cc7ff246ec1>>`
 
 ## Install
 
@@ -492,7 +494,7 @@ const defaultInitialStampPlacer: TFormatter = ({ content, stamp }) =>
  * NOTE: When `initialStampRemover` is invoked, it's guaranteed that
  * the value of `content` includes `stamp`.
  *
- * NOTE: In some scenarios, you might also find it easier to
+ * NOTE: In some scenarios, you might find it easier to just
  * completely regenerate the file. Instead of writing to and reading
  * from the same target file, introduce an intermediate representation
  * as your source of truth, and only write to the final target file.
@@ -593,7 +595,10 @@ export type TApplyStampResult =
 
 ## Acknowledgments
 
-`codestamp` is inspired by a similar code signing system at Facebook. There's an open source version ([`signedsource`](https://github.com/facebook/fbjs/blob/main/packages/signedsource/index.js)) in `fbjs`, but it's a bit hard to customize and track contents of dependencies.
+`codestamp` is inspired by similar code signing systems at Facebook.
+
+- [`signedsource` in `fbjs`](https://github.com/facebook/fbjs/blob/main/packages/signedsource/index.js): Used by Relay, but doesn't allow customization or tracking of dependencies
+- [`Hack Codegen`](https://github.com/hhvm/hack-codegen): Great abstraction and design, but only supports generating and signing Hack code
 
 ## License
 

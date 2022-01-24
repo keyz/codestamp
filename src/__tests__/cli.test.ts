@@ -17,9 +17,9 @@ test("cli help", () => {
   expect(helpResult).toMatchInlineSnapshot(`
     "[1mcodestamp[22m - Stamp and verify your files and contents [version <MOCKED>]
 
-    codestamp is a tool for verifying the integrity of your files. It's most
-    useful for guarding codegen'd files against unintentional manual edits, 
-    but it also can be used for signing individual files.
+    A language-agnostic tool for signing and verifying the integrity of your
+    files. It's most useful for guarding codegen'd files against unintentional
+    manual edits, but it also can be used for signing individual files.
 
     [1mUsage[22m
         $ codestamp target_file [options]
@@ -30,7 +30,7 @@ test("cli help", () => {
                           \`stderr\` and \`exit(1)\` when the stamp is invalid.
 
         -d, --deps        One or more file paths or globs. The stamp hash is
-        [comma-separated  computed from the target file's content and all 
+        [comma-separated  computed from the target file's content and all
         string]           dependencies.
 
                           Make sure to quote the globs to let codestamp expand
@@ -61,7 +61,7 @@ test("cli help", () => {
 
         $ cat types.ts
         type FFI = ...
-        
+
         $ codestamp types.ts --deps ffi.rs,data.json
         [32m+ /* @generated CodeStamp<<c1aa4ff2ac747d1192773354ad64d122>> */[39m
           type FFI = ...
@@ -80,7 +80,7 @@ test("cli help", () => {
         [31m- /* @generated CodeStamp<<c1aa4ff2ac747d1192773354ad64d122>> */[39m
         [32m+ /* @generated CodeStamp<<64adca472a2638d8c915fb5d83c688f7>> */[39m
           type FFI = ...
-        
+
         $ echo $?
         1
 

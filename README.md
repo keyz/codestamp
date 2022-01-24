@@ -4,89 +4,28 @@
 
 `codestamp` is a language-agnostic tool for signing and verifying the integrity of your files. It's most useful for guarding codegen'd files against unintentional manual edits, but it also can be used for signing individual files.
 
-If you're new to codegen, ["Writing code that writes code — with Hack Codegen"](https://engineering.fb.com/2015/08/20/open-source/writing-code-that-writes-code-with-hack-codegen/) is a good read.
+If you're new to codegen, ["Writing code that writes code — with Hack Codegen"](https://engineering.fb.com/2015/08/20/open-source/writing-code-that-writes-code-with-hack-codegen/) explains why it's important to sign and verify generated files.
 
-## Recommended workflow
+## Table of contents
 
-1️⃣ Codegen your files as usual, then run `codestamp` to add a stamp.
+- [Getting Started](#getting-started)
+  - [TL;DR (CLI Example)](#tldr-cli-example)
+  - [Install](#install)
+  - [More Examples](#more-examples)
+  - [Recommended workflow](#recommended-workflow)
+- [Documentation](#documentation)
+  - [Command Line](#command-line)
+    - [CLI Usage](#cli-usage)
+    - [CLI Options](#cli-options)
+  - [Node.js API](#nodejs-api)
+    - [`runner(...)`](#runner)
+    - [`applyStamp(...)`](#applystamp)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
 
-- `codestamp` computes a deterministic hash (e.g., `CodeStamp<<​c1aa4ff2ac747d1192773354ad64d122​>>`) from the contents of your target file and all dependencies.
-- By default, `codestamp` inserts the stamp as a banner comment. You can use the CLI (`--template`) to make small tweaks, or use the Node.js API to dynamically place the stamp (see [`examples/dynamic-json/stamp.js`](examples/dynamic-json/stamp.js)).
+## Getting Started
 
-2️⃣ Run `codestamp` as a Git [pre-commit hook](https://github.com/typicode/husky) and on CI; treat it as a linter for your codegen'd files.
-
-- The `codestamp` CLI will verify the stamp against the files, and `exit(1)` when the stamp is invalid.
-
-3️⃣ Profit
-
-## Examples
-
-- [`examples/basic`](examples/basic/package.json): Simple stamping via the CLI.
-- [`examples/template-python`](examples/template-python/package.json): Use template string to add a Python banner comment via the CLI.
-- [`examples/dynamic-json`](examples/dynamic-json/stamp.js): Use the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
-- 🙋 [`scripts/generate-docs.ts`](scripts/generate-docs.ts): The README file you're reading is generated and verified by `codestamp`!
-  - And here's the stamp: `CodeStamp<<fc8e58b95bd9dc1638510cc7ff246ec1>>`
-
-## Install
-
-```bash
-# Install locally
-$ npm install --save-dev codestamp
-
-# Or use npx
-$ npx codestamp@latest
-
-# Or install globally
-$ npm install -g codestamp
-```
-
-`codestamp` comes with a [CLI](#command-line) and a [Node.js API](#nodejs-api).
-
-## Command Line
-
-### CLI Usage
-
-```bash
-$ codestamp target_file [options]
-```
-
-### CLI Options
-
-#### `-w, --write` (`boolean`)
-
-Rewrite the file in-place. Without this flag, `codestamp` runs in verification mode: it prints the diff to `stderr` and `exit(1)` when the stamp is invalid.
-
-#### `-d, --deps` (comma-separated `string`)
-
-One or more file paths or globs. The stamp hash is computed from the target file's content and all dependencies.
-
-Make sure to quote the globs to let `codestamp` expand the globs, rather than your shell.
-
-Example:
-
-```bash
-$ codestamp target.ts --deps 'data/foo.json'
-$ codestamp target.ts --deps 'data/foo.json,types/*.ts'
-$ codestamp target.ts --deps 'data/**/*.json,types/*.ts'
-```
-
-#### `-t, --template` (`string`)
-
-A template string for placing the stamp. `codestamp` will replace `%STAMP%` with the stamp, and `%CONTENT%` with the rest of content.
-
-Use the Node.js API (see `TStampPlacer`) to dynamically place the stamp.
-
-Example:
-
-```bash
-$ codestamp target.py --template '# @codegen %STAMP%\\n%CONTENT%'
-```
-
-#### `-h, --help`
-
-This help guide.
-
-### CLI Examples
+### TL;DR (CLI Example)
 
 ```diff
 $ ./your-script-that-generates-types --from ffi.rs,data.json
@@ -118,11 +57,93 @@ $ echo $?
 1
 ```
 
-## Node.js API
+### Install
 
-### `runner(...)`
+`codestamp` comes with a simple CLI ([docs](#command-line)) and a Node.js API ([docs](#nodejs-api)).
 
-`runner(...)` reads contents from disk and verifies the stamp. The CLI is a thin wrapper around `runner(...)`.
+```bash
+# Install locally
+$ npm install --save-dev codestamp
+
+# Or use npx
+$ npx codestamp@latest
+
+# Or install globally
+$ npm install -g codestamp
+```
+
+### More Examples
+
+- [`examples/basic`](examples/basic/package.json): Simple stamping via the CLI.
+- [`examples/template-python`](examples/template-python/package.json): Use template string to add a Python banner comment via the CLI.
+- [`examples/dynamic-json`](examples/dynamic-json/stamp.js): Use the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
+- 🙋 [`scripts/generate-docs.ts`](scripts/generate-docs.ts): The README file you're reading is generated and verified by `codestamp`!
+  - And here's the stamp: `CodeStamp<<cd21600e1a6bd8f42c99f648986959c1>>`
+
+### Recommended workflow
+
+1/ Codegen your files as usual, then run `codestamp` to add a stamp.
+
+- `codestamp` computes a deterministic hash (e.g., `CodeStamp<<​c1aa4ff2ac747d1192773354ad64d122​>>`) from the contents of your target file and all dependencies.
+- By default, `codestamp` inserts the stamp as a banner comment. You can use the CLI (`--template`) to make small tweaks, or use the Node.js API to dynamically place the stamp (see [`examples/dynamic-json/stamp.js`](examples/dynamic-json/stamp.js)).
+
+2/ Run `codestamp` as a Git [pre-commit hook](https://github.com/typicode/husky) and on CI; treat it as a linter for your codegen'd files.
+
+- The `codestamp` CLI will verify the stamp against the files, and `exit(1)` when the stamp is invalid.
+
+3/ Profit
+
+## Documentation
+
+### Command Line
+
+#### CLI Usage
+
+```bash
+$ codestamp target_file [options]
+```
+
+#### CLI Options
+
+##### `-w, --write` (`boolean`)
+
+Rewrite the file in-place. Without this flag, `codestamp` runs in verification mode: it prints the diff to `stderr` and `exit(1)` when the stamp is invalid.
+
+##### `-d, --deps` (comma-separated `string`)
+
+One or more file paths or globs. The stamp hash is computed from the target file's content and all dependencies.
+
+Make sure to quote the globs to let `codestamp` expand the globs, rather than your shell.
+
+Example:
+
+```bash
+$ codestamp target.ts --deps 'data/foo.json'
+$ codestamp target.ts --deps 'data/foo.json,types/*.ts'
+$ codestamp target.ts --deps 'data/**/*.json,types/*.ts'
+```
+
+##### `-t, --template` (`string`)
+
+A template string for placing the stamp. `codestamp` will replace `%STAMP%` with the stamp, and `%CONTENT%` with the rest of content.
+
+Use the Node.js API (see `TStampPlacer`) to dynamically place the stamp.
+
+Example:
+
+```bash
+$ codestamp target.py --template '# @codegen %STAMP%\\n%CONTENT%'
+```
+
+##### `-h, --help`
+
+This help guide.
+
+### Node.js API
+
+#### `runner(...)`
+
+Reads contents from disk, then writes and verifies the stamp. The CLI is a thin wrapper around `runner(...)`.
 
 [`examples/dynamic-json`](examples/dynamic-json/stamp.js) is a simple example of using the `runner`. It uses the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
 
@@ -164,6 +185,10 @@ export async function runner({
 ```
 
 <!-- <DOCEND TARGET runner> -->
+
+##### `TRunnerParam`
+
+Parameter for [`runner(...)`](#runner).
 
 <!-- <DOCSTART TARGET TRunnerParam> -->
 
@@ -222,6 +247,45 @@ export type TRunnerParam = {
 ```
 
 <!-- <DOCEND TARGET TRunnerParam> -->
+
+##### `TRunnerResult`
+
+Return type for [`runner(...)`](#runner).
+
+<!-- <DOCSTART TARGET TRunnerResult> -->
+
+```typescript
+type DistributiveIntersection<Union, T> = Union extends {} ? Union & T : never;
+
+/**
+ * The return type is based on {@link TApplyStampResult}, with the
+ * addition of some runner-specific fields.
+ */
+export type TRunnerResult = DistributiveIntersection<
+  TApplyStampResult,
+  {
+    /**
+     * Indicates whether the runner wrote to disk. Determined by
+     * `shouldWrite`.
+     *
+     * For "OK" and "ERROR" statuses, the result is always `false`.
+     */
+    didWrite: boolean;
+    /**
+     * Indicates whether the caller should `exit(1)` if desired.
+     * Useful for running on CI.
+     */
+    shouldFatalIfDesired: boolean;
+  }
+>;
+```
+
+<!-- <DOCEND TARGET TRunnerResult> -->
+
+##### `TRunnerFileTransformerForHashing`
+
+Ignore insignificant changes and make the stamp less sensitive.
+
 <!-- <DOCSTART TARGET TRunnerFileTransformerForHashing> -->
 
 ````typescript
@@ -279,37 +343,8 @@ type TRunnerFileTransformerParam =
 ````
 
 <!-- <DOCEND TARGET TRunnerFileTransformerForHashing> -->
-<!-- <DOCSTART TARGET TRunnerResult> -->
 
-```typescript
-type DistributiveIntersection<Union, T> = Union extends {} ? Union & T : never;
-
-/**
- * The return type is based on {@link TApplyStampResult}, with the
- * addition of some runner-specific fields.
- */
-export type TRunnerResult = DistributiveIntersection<
-  TApplyStampResult,
-  {
-    /**
-     * Indicates whether the runner wrote to disk. Determined by
-     * `shouldWrite`.
-     *
-     * For "OK" and "ERROR" statuses, the result is always `false`.
-     */
-    didWrite: boolean;
-    /**
-     * Indicates whether the caller should `exit(1)` if desired.
-     * Useful for running on CI.
-     */
-    shouldFatalIfDesired: boolean;
-  }
->;
-```
-
-<!-- <DOCEND TARGET TRunnerResult> -->
-
-### `applyStamp(...)`
+#### `applyStamp(...)`
 
 `applyStamp(...)` works on strings, not file paths. In other words, it's a low-level building block for stamping and verification.
 
@@ -344,6 +379,11 @@ export function applyStamp({
 ```
 
 <!-- <DOCEND TARGET applyStamp> -->
+
+##### `TApplyStampParam`
+
+Parameter for [`applyStamp(...)`](#applystamp).
+
 <!-- <DOCSTART TARGET TApplyStampParam> -->
 
 ````typescript
@@ -406,6 +446,11 @@ export type TApplyStampParam = {
 ````
 
 <!-- <DOCEND TARGET TApplyStampParam> -->
+
+##### `TStampPlacer`
+
+Specify where the initial stamp should be placed.
+
 <!-- <DOCSTART TARGET TStampPlacer> -->
 
 ````typescript
@@ -478,6 +523,11 @@ const defaultInitialStampPlacer: TFormatter = ({ content, stamp }) =>
 ````
 
 <!-- <DOCEND TARGET TStampPlacer> -->
+
+##### `TStampRemover`
+
+Specify how the initial stamp should be removed and updated.
+
 <!-- <DOCSTART TARGET TStampRemover> -->
 
 ````typescript
@@ -529,6 +579,11 @@ export type TStampRemover = TFormatter;
 ````
 
 <!-- <DOCEND TARGET TStampRemover> -->
+
+##### `TApplyStampResult`
+
+Return type for [`applyStamp(...)`](#applystamp).
+
 <!-- <DOCSTART TARGET TApplyStampResult> -->
 
 ```typescript

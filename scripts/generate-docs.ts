@@ -63,8 +63,11 @@ async function stamp({
     initialStampPlacer: ({ content, stamp }) => {
       const contentLineList = content.split("\n");
       const indexOfExamples = contentLineList.findIndex((line) =>
-        line.startsWith("## Examples")
+        line.startsWith("### More Examples")
       );
+
+      invariant(indexOfExamples !== -1, `Couldn't found examples`);
+
       const firstBulletPointIndex = contentLineList.findIndex(
         (line, index) => line.startsWith("- ") && index > indexOfExamples
       );

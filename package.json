@@ -87,6 +87,7 @@
     "generator",
     "hash",
     "integrity",
+    "language-agnostic",
     "shasum",
     "sign",
     "signature",

@@ -23,7 +23,7 @@
 - [`examples/template-python`](examples/template-python/package.json): Use template string to add a Python banner comment via the CLI.
 - [`examples/dynamic-json`](examples/dynamic-json/stamp.js): Use the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
 - 🙋 [`scripts/generate-docs.ts`](scripts/generate-docs.ts): The README file you're reading is generated and verified by `codestamp`!
-  - And here's the stamp: `CodeStamp<<8749ce1f7f4996105830a9017c1e9df2>>`
+  - And here's the stamp: `CodeStamp<<5cd5b5943e7bf777617569335127c5b2>>`
 
 ## Install
 
@@ -149,7 +149,16 @@ export async function runner({
   fileTransformerForHashing = ({ content }) => content,
   cwd = process.cwd(),
   silent = false,
-}: TRunnerParam): Promise<TRunnerResult>;
+}: {
+  targetFilePath: string;
+  dependencyGlobList: Array<string>;
+  shouldWrite: boolean;
+  initialStampPlacer?: TStampPlacer;
+  initialStampRemover?: TStampRemover;
+  fileTransformerForHashing?: TRunnerFileTransformerForHashing;
+  cwd?: string;
+  silent?: boolean;
+}): Promise<TRunnerResult>;
 ```
 
 <!-- <DOCEND TARGET runner> -->
@@ -173,6 +182,12 @@ export type TRunnerParam = {
    */
   dependencyGlobList: Array<string>;
   /**
+   * Whether the file should be rewritten in-place. Without this flag,
+   * `codestamp` will run in verification mode -- it won't write to
+   * disk.
+   */
+  shouldWrite: boolean;
+  /**
    * Use it to specify where the stamp should be placed **initially**.
    * See {@link TStampPlacer}.
    */
@@ -189,12 +204,6 @@ export type TRunnerParam = {
    * @defaultValue `({content}) => content`
    */
   fileTransformerForHashing?: TRunnerFileTransformerForHashing;
-  /**
-   * Whether the file should be rewritten in-place. Without this flag,
-   * `codestamp` will run in verification mode -- it won't write to
-   * disk.
-   */
-  shouldWrite: boolean;
   /**
    * For `glob`: the current working directory in which to search.
    *
@@ -320,7 +329,16 @@ export function applyStamp({
   initialStampPlacer,
   initialStampRemover,
   contentTransformerForHashing = ({ content }) => content,
-}: TApplyStampParam): TApplyStampResult;
+}: {
+  dependencyContentList: Array<string>;
+  targetContent: string;
+  initialStampPlacer?: TStampPlacer;
+  initialStampRemover?: TStampRemover;
+  contentTransformerForHashing?: (param: {
+    content: string;
+    stamp: string;
+  }) => string;
+}): TApplyStampResult;
 ```
 
 <!-- <DOCEND TARGET applyStamp> -->
@@ -473,6 +491,11 @@ const defaultInitialStampPlacer: TFormatter = ({ content, stamp }) =>
  *
  * NOTE: When `initialStampRemover` is invoked, it's guaranteed that
  * the value of `content` includes `stamp`.
+ *
+ * NOTE: In some scenarios, you might also find it easier to
+ * completely regenerate the file. Instead of writing to and reading
+ * from the same target file, introduce an intermediate representation
+ * as your source of truth, and only write to the final target file.
  *
  * ```typescript
  * content.indexOf(stamp) !== -1 // guaranteed

@@ -101,6 +101,11 @@ const defaultInitialStampPlacer: TFormatter = ({ content, stamp }) =>
  * NOTE: When `initialStampRemover` is invoked, it's guaranteed that
  * the value of `content` includes `stamp`.
  *
+ * NOTE: In some scenarios, you might also find it easier to
+ * completely regenerate the file. Instead of writing to and reading
+ * from the same target file, introduce an intermediate representation
+ * as your source of truth, and only write to the final target file.
+ *
  * ```typescript
  * content.indexOf(stamp) !== -1 // guaranteed
  * ```
@@ -277,7 +282,16 @@ export function applyStamp({
   initialStampPlacer,
   initialStampRemover,
   contentTransformerForHashing = ({ content }) => content,
-}: TApplyStampParam): TApplyStampResult {
+}: {
+  dependencyContentList: Array<string>;
+  targetContent: string;
+  initialStampPlacer?: TStampPlacer;
+  initialStampRemover?: TStampRemover;
+  contentTransformerForHashing?: (param: {
+    content: string;
+    stamp: string;
+  }) => string;
+}): TApplyStampResult {
   // <DOCEND SOURCE applyStamp>
 
   let newContentWithPlaceholderStamp: string;

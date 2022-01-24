@@ -23,6 +23,12 @@ export type TRunnerParam = {
    */
   dependencyGlobList: Array<string>;
   /**
+   * Whether the file should be rewritten in-place. Without this flag,
+   * `codestamp` will run in verification mode -- it won't write to
+   * disk.
+   */
+  shouldWrite: boolean;
+  /**
    * Use it to specify where the stamp should be placed **initially**.
    * See {@link TStampPlacer}.
    */
@@ -39,12 +45,6 @@ export type TRunnerParam = {
    * @defaultValue `({content}) => content`
    */
   fileTransformerForHashing?: TRunnerFileTransformerForHashing;
-  /**
-   * Whether the file should be rewritten in-place. Without this flag,
-   * `codestamp` will run in verification mode -- it won't write to
-   * disk.
-   */
-  shouldWrite: boolean;
   /**
    * For `glob`: the current working directory in which to search.
    *
@@ -161,7 +161,16 @@ export async function runner({
   fileTransformerForHashing = ({ content }) => content,
   cwd = process.cwd(),
   silent = false,
-}: TRunnerParam): Promise<TRunnerResult> {
+}: {
+  targetFilePath: string;
+  dependencyGlobList: Array<string>;
+  shouldWrite: boolean;
+  initialStampPlacer?: TStampPlacer;
+  initialStampRemover?: TStampRemover;
+  fileTransformerForHashing?: TRunnerFileTransformerForHashing;
+  cwd?: string;
+  silent?: boolean;
+}): Promise<TRunnerResult> {
   // <DOCEND SOURCE runner>
 
   const absoluteTargetFilePath = path.resolve(cwd, targetFilePath);

@@ -69,6 +69,8 @@ async function stamp({
         (line, index) => line.startsWith("- ") && index > indexOfExamples
       );
       let insertIndex = firstBulletPointIndex;
+      invariant(insertIndex !== -1, `Couldn't found bullet point`);
+
       while (true) {
         if (!contentLineList[insertIndex]!.startsWith("- ")) {
           break;
@@ -79,10 +81,21 @@ async function stamp({
       contentLineList.splice(
         insertIndex,
         0,
-        `- 🙋 [\`scripts/generate-docs.ts\`](scripts/generate-docs.ts) The README file you're reading is generated and verified by \`codestamp\`!`,
+        `- 🙋 [\`scripts/generate-docs.ts\`](scripts/generate-docs.ts): The README file you're reading is generated and verified by \`codestamp\`!`,
         `  - And here's the stamp: \`${stamp}\``
       );
 
+      return contentLineList.join("\n");
+    },
+    initialStampRemover: ({ content, stamp }) => {
+      const contentLineList = content.split("\n");
+      const indexOfStamp = contentLineList.findIndex((line) =>
+        line.includes(stamp)
+      );
+
+      invariant(indexOfStamp !== -1, `Couldn't found stamp`);
+
+      contentLineList.splice(indexOfStamp - 1, 2);
       return contentLineList.join("\n");
     },
     fileTransformerForHashing: (param) => {

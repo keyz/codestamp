@@ -24,13 +24,12 @@ const STAMP_REGEX_GLOBAL = new RegExp(STAMP_REGEX, "g");
  * recommended to use the function form when using the Node API.
  *
  * Use it to specify where the stamp should be placed **initially**.
- * Updating the placer on content that already uses a **custom**
- * placer has no effect, because `codestamp` cannot guarantee a
- * deterministic update. In this case, although the format won't
- * change, the existing stamp will always be updated correctly.
- *
- * Please regenerate the file when you update the placer from another
- * custom placer.
+ * If you update `initialStampPlacer` from another **custom** placer,
+ * you must also define `initialStampRemover` ({@link TStampRemover})
+ * to instruct how your previous stamp should be removed. Otherwise
+ * the format change won't be applied (because `codestamp` doesn't
+ * have enough context to make a safe change), although the stamp
+ * itself will always be updated correctly.
  *
  * NOTE: A single and complete stamp must be returned as-is from the
  * function or included in the string.
@@ -39,6 +38,13 @@ const STAMP_REGEX_GLOBAL = new RegExp(STAMP_REGEX, "g");
  * - Template string: A string that contains two special formatters,
  *   `%STAMP%` and `%CONTENT%`. `codestamp` will replace `%STAMP%`
  *   with the stamp, and `%CONTENT%` with the rest of content.
+ *
+ * NOTE: When `initialStampPlacer` is invoked, it's guaranteed that
+ * the value of `content` does not include `stamp`.
+ *
+ * ```typescript
+ * content.indexOf(stamp) === -1 // guaranteed
+ * ```
  *
  * @example Add a JS banner comment
  *
@@ -67,9 +73,9 @@ const STAMP_REGEX_GLOBAL = new RegExp(STAMP_REGEX, "g");
  * }
  * ```
  */
-export type TStampPlacer = TStampPlacerFn | string;
+export type TStampPlacer = TFormatter | string;
 
-type TStampPlacerFn = ({
+export type TFormatter = ({
   content,
   stamp,
 }: {
@@ -77,11 +83,58 @@ type TStampPlacerFn = ({
   stamp: string;
 }) => string;
 
-const defaultInitialStampPlacer: TStampPlacerFn = ({ content, stamp }) =>
+const defaultInitialStampPlacer: TFormatter = ({ content, stamp }) =>
   `/* @generated ${stamp} */\n${content}`;
 // <DOCEND SOURCE TStampPlacer>
 
-function getStampPlacerFromTemplate(template: string): TStampPlacerFn {
+// <DOCSTART SOURCE TStampRemover>
+/**
+ * The inverse of `initialStampPlacer` ({@link TStampPlacer}). Use it
+ * to remove (and update) a previously applied **custom** stamp (the
+ * default stamp will always be removed automatically).
+ *
+ * If you update `initialStampPlacer` from another custom placer, you
+ * must define this function to instruct how your previous stamp
+ * should be removed. Otherwise the format change won't be applied,
+ * although the stamp itself will always be updated correctly.
+ *
+ * NOTE: When `initialStampRemover` is invoked, it's guaranteed that
+ * the value of `content` includes `stamp`.
+ *
+ * ```typescript
+ * content.indexOf(stamp) !== -1 // guaranteed
+ * ```
+ *
+ * In other words, `initialStampRemover` won't be called if `content`
+ * doesn't contain a `stamp` yet.
+ *
+ * @example Update a custom Python multiline banner comment
+ *
+ * ```typescript
+ * {
+ *   initialStampPlacer: ({content, stamp}) => {
+ *     return `# GENERATED ${stamp}\n# DO NOT EDIT BY HAND\n${content}`;
+ *   },
+ *   initialStampRemover: ({content, stamp}) => {
+ *     const contentLineList = content.split('\n');
+ *     const indexOfStamp = contentLineList.findIndex(
+ *       line => line.includes(stamp),
+ *     );
+ *
+ *     contentLineList.splice(indexOfStamp, 2);
+ *     return contentLineList.join('\n');
+ *   },
+ * }
+ * ```
+ */
+export type TStampRemover = TFormatter;
+// <DOCEND SOURCE TStampRemover>
+
+const defaultInitialStampRemover: TStampRemover = ({ content, stamp }) => {
+  return content.replace(defaultInitialStampPlacer({ content: "", stamp }), "");
+};
+
+function resolveStampPlacerFromTemplate(template: string): TFormatter {
   return ({ content, stamp }) => {
     return replaceAll(
       replaceAll(template, "%STAMP%", stamp),
@@ -110,11 +163,16 @@ export type TApplyStampParam = {
   targetContent: string;
   /**
    * Use it to specify where the stamp should be placed **initially**.
-   * See {@link TStampPlacer}.
+   * See {@link TStampPlacer} and {@link TStampRemover}.
    *
    * @defaultValue {@link defaultInitialStampPlacer}
    */
   initialStampPlacer?: TStampPlacer;
+  /**
+   * Use it to remove (and update) a previously applied **custom**
+   * stamp. See {@link TStampRemover} and {@link TStampPlacer}.
+   */
+  initialStampRemover?: TStampRemover;
   /**
    * Use it to ignore insignificant changes and make the stamp less
    * sensitive.
@@ -217,14 +275,16 @@ export function applyStamp({
   dependencyContentList,
   targetContent,
   initialStampPlacer,
+  initialStampRemover,
   contentTransformerForHashing = ({ content }) => content,
 }: TApplyStampParam): TApplyStampResult {
   // <DOCEND SOURCE applyStamp>
+
   let newContentWithPlaceholderStamp: string;
 
-  const matchList = [...targetContent.matchAll(STAMP_REGEX_GLOBAL)];
+  const stampList = extractStampList(targetContent);
 
-  if (matchList.length === 0) {
+  if (stampList.length === 0) {
     // "NEW" - Fresh content, apply placer
     const maybeResult = applyPlacer({
       content: targetContent,
@@ -237,7 +297,7 @@ export function applyStamp({
     }
 
     newContentWithPlaceholderStamp = maybeResult.value;
-  } else if (matchList.length > 1) {
+  } else if (stampList.length > 1) {
     // "ERROR"
     return {
       status: "ERROR",
@@ -247,38 +307,49 @@ export function applyStamp({
         "`codestamp` needs to bail out because it cannot guarantee a deterministic update.",
         "Please regenerate the file.",
       ].join(" "),
-      stampList: matchList.map((item) => nullThrows(item?.groups?.stamp)),
+      stampList,
     };
   } else {
-    // "UPDATE"
+    // "UPDATE": stampList.length === 1
     newContentWithPlaceholderStamp = updateStamp({
       content: targetContent,
       newStamp: PLACEHOLDER_STAMP,
     });
 
-    if (initialStampPlacer != null) {
-      // Attempt to rewrite the stamp placement from default -> custom
+    // Attempt to remove the previous stamp
+    let maybeContentWithoutPreviousStamp = newContentWithPlaceholderStamp;
 
-      const contentWithoutDefaultStamp = newContentWithPlaceholderStamp.replace(
-        defaultInitialStampPlacer({ content: "", stamp: PLACEHOLDER_STAMP }),
-        ""
-      );
+    // Always call the default remover first
+    maybeContentWithoutPreviousStamp = defaultInitialStampRemover({
+      content: maybeContentWithoutPreviousStamp,
+      stamp: PLACEHOLDER_STAMP,
+    });
 
-      if (contentWithoutDefaultStamp !== newContentWithPlaceholderStamp) {
-        // Great, the previous stamp placement was the default one.
-        // Remove it and apply the new stamp placer
-        const maybeResult = applyPlacer({
-          content: contentWithoutDefaultStamp,
-          stamp: PLACEHOLDER_STAMP,
-          placer: initialStampPlacer,
-        });
+    // Invoke `initialStampRemover` if there's still a stamp
+    if (
+      extractStampList(maybeContentWithoutPreviousStamp).length !== 0 &&
+      initialStampRemover != null
+    ) {
+      maybeContentWithoutPreviousStamp = initialStampRemover({
+        content: maybeContentWithoutPreviousStamp,
+        stamp: PLACEHOLDER_STAMP,
+      });
+    }
 
-        if (!maybeResult.ok) {
-          return maybeResult.error;
-        }
+    if (extractStampList(maybeContentWithoutPreviousStamp).length === 0) {
+      // Great, the previous stamp was removed!
+      // Apply initial placer again
+      const maybeResult = applyPlacer({
+        content: maybeContentWithoutPreviousStamp,
+        stamp: PLACEHOLDER_STAMP,
+        placer: initialStampPlacer,
+      });
 
-        newContentWithPlaceholderStamp = maybeResult.value;
+      if (!maybeResult.ok) {
+        return maybeResult.error;
       }
+
+      newContentWithPlaceholderStamp = maybeResult.value;
     }
   }
 
@@ -305,7 +376,7 @@ export function applyStamp({
     };
   }
 
-  if (matchList.length < 1) {
+  if (stampList.length < 1) {
     return {
       status: "NEW",
       newStamp,
@@ -313,11 +384,11 @@ export function applyStamp({
     };
   }
 
-  const matchItem = matchList[0];
+  const oldStamp = stampList[0];
   return {
     status: "UPDATE",
     newStamp,
-    oldStamp: nullThrows(matchItem?.groups?.stamp),
+    oldStamp: nullThrows(oldStamp),
     newContent,
   };
 }
@@ -339,12 +410,12 @@ function applyPlacer({
   string,
   Extract<TApplyStampResult, { status: "ERROR"; errorType: "STAMP_PLACER" }>
 > {
-  let resolvedPlacer: TStampPlacerFn;
+  let resolvedPlacer: TFormatter;
 
   if (placer === undefined) {
     resolvedPlacer = defaultInitialStampPlacer;
   } else if (typeof placer === "string") {
-    resolvedPlacer = getStampPlacerFromTemplate(placer);
+    resolvedPlacer = resolveStampPlacerFromTemplate(placer);
   } else if (typeof placer === "function") {
     resolvedPlacer = placer;
   } else {
@@ -375,16 +446,16 @@ function applyPlacer({
     };
   }
 
-  const matchList = [...placerReturnValue.matchAll(STAMP_REGEX_GLOBAL)];
+  const stampList = extractStampList(placerReturnValue);
 
-  if (matchList.length !== 1) {
+  if (stampList.length !== 1) {
     return {
       ok: false,
       error: {
         status: "ERROR",
         errorType: "STAMP_PLACER",
         errorDescription:
-          matchList.length === 0
+          stampList.length === 0
             ? "`initialStampPlacer` didn't return a stamp."
             : "`initialStampPlacer` returned multiple stamps.",
         placer: String(placer),
@@ -408,4 +479,10 @@ function updateStamp({
   newStamp: string;
 }): string {
   return content.replace(STAMP_REGEX, newStamp);
+}
+
+function extractStampList(content: string): Array<string> {
+  return [...content.matchAll(STAMP_REGEX_GLOBAL)].map((item) =>
+    nullThrows(item?.groups?.stamp)
+  );
 }

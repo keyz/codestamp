@@ -22,8 +22,8 @@
 - [`examples/basic`](examples/basic/package.json): Simple stamping via the CLI.
 - [`examples/template-python`](examples/template-python/package.json): Use template string to add a Python banner comment via the CLI.
 - [`examples/dynamic-json`](examples/dynamic-json/stamp.js): Use the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
-- 🙋 [`scripts/generate-docs.ts`](scripts/generate-docs.ts) The README file you're reading is generated and verified by `codestamp`!
-  - And here's the stamp: `CodeStamp<<7f4ffde90274b9e0531d4536b11832b6>>`
+- 🙋 [`scripts/generate-docs.ts`](scripts/generate-docs.ts): The README file you're reading is generated and verified by `codestamp`!
+  - And here's the stamp: `CodeStamp<<8749ce1f7f4996105830a9017c1e9df2>>`
 
 ## Install
 
@@ -145,6 +145,7 @@ export async function runner({
   dependencyGlobList,
   shouldWrite,
   initialStampPlacer,
+  initialStampRemover,
   fileTransformerForHashing = ({ content }) => content,
   cwd = process.cwd(),
   silent = false,
@@ -176,6 +177,11 @@ export type TRunnerParam = {
    * See {@link TStampPlacer}.
    */
   initialStampPlacer?: TStampPlacer;
+  /**
+   * Use it to remove (and update) a previously applied **custom**
+   * stamp. See {@link TStampRemover} and {@link TStampPlacer}.
+   */
+  initialStampRemover?: TStampRemover;
   /**
    * Use it to ignore insignificant changes and make the stamp less
    * sensitive. See {@link TRunnerFileTransformerForHashing}
@@ -312,6 +318,7 @@ export function applyStamp({
   dependencyContentList,
   targetContent,
   initialStampPlacer,
+  initialStampRemover,
   contentTransformerForHashing = ({ content }) => content,
 }: TApplyStampParam): TApplyStampResult;
 ```
@@ -338,11 +345,16 @@ export type TApplyStampParam = {
   targetContent: string;
   /**
    * Use it to specify where the stamp should be placed **initially**.
-   * See {@link TStampPlacer}.
+   * See {@link TStampPlacer} and {@link TStampRemover}.
    *
    * @defaultValue {@link defaultInitialStampPlacer}
    */
   initialStampPlacer?: TStampPlacer;
+  /**
+   * Use it to remove (and update) a previously applied **custom**
+   * stamp. See {@link TStampRemover} and {@link TStampPlacer}.
+   */
+  initialStampRemover?: TStampRemover;
   /**
    * Use it to ignore insignificant changes and make the stamp less
    * sensitive.
@@ -382,13 +394,12 @@ export type TApplyStampParam = {
  * recommended to use the function form when using the Node API.
  *
  * Use it to specify where the stamp should be placed **initially**.
- * Updating the placer on content that already uses a **custom**
- * placer has no effect, because `codestamp` cannot guarantee a
- * deterministic update. In this case, although the format won't
- * change, the existing stamp will always be updated correctly.
- *
- * Please regenerate the file when you update the placer from another
- * custom placer.
+ * If you update `initialStampPlacer` from another **custom** placer,
+ * you must also define `initialStampRemover` ({@link TStampRemover})
+ * to instruct how your previous stamp should be removed. Otherwise
+ * the format change won't be applied (because `codestamp` doesn't
+ * have enough context to make a safe change), although the stamp
+ * itself will always be updated correctly.
  *
  * NOTE: A single and complete stamp must be returned as-is from the
  * function or included in the string.
@@ -397,6 +408,13 @@ export type TApplyStampParam = {
  * - Template string: A string that contains two special formatters,
  *   `%STAMP%` and `%CONTENT%`. `codestamp` will replace `%STAMP%`
  *   with the stamp, and `%CONTENT%` with the rest of content.
+ *
+ * NOTE: When `initialStampPlacer` is invoked, it's guaranteed that
+ * the value of `content` does not include `stamp`.
+ *
+ * ```typescript
+ * content.indexOf(stamp) === -1 // guaranteed
+ * ```
  *
  * @example Add a JS banner comment
  *
@@ -425,9 +443,9 @@ export type TApplyStampParam = {
  * }
  * ```
  */
-export type TStampPlacer = TStampPlacerFn | string;
+export type TStampPlacer = TFormatter | string;
 
-type TStampPlacerFn = ({
+export type TFormatter = ({
   content,
   stamp,
 }: {
@@ -435,11 +453,57 @@ type TStampPlacerFn = ({
   stamp: string;
 }) => string;
 
-const defaultInitialStampPlacer: TStampPlacerFn = ({ content, stamp }) =>
+const defaultInitialStampPlacer: TFormatter = ({ content, stamp }) =>
   `/* @generated ${stamp} */\n${content}`;
 ````
 
 <!-- <DOCEND TARGET TStampPlacer> -->
+<!-- <DOCSTART TARGET TStampRemover> -->
+
+````typescript
+/**
+ * The inverse of `initialStampPlacer` ({@link TStampPlacer}). Use it
+ * to remove (and update) a previously applied **custom** stamp (the
+ * default stamp will always be removed automatically).
+ *
+ * If you update `initialStampPlacer` from another custom placer, you
+ * must define this function to instruct how your previous stamp
+ * should be removed. Otherwise the format change won't be applied,
+ * although the stamp itself will always be updated correctly.
+ *
+ * NOTE: When `initialStampRemover` is invoked, it's guaranteed that
+ * the value of `content` includes `stamp`.
+ *
+ * ```typescript
+ * content.indexOf(stamp) !== -1 // guaranteed
+ * ```
+ *
+ * In other words, `initialStampRemover` won't be called if `content`
+ * doesn't contain a `stamp` yet.
+ *
+ * @example Update a custom Python multiline banner comment
+ *
+ * ```typescript
+ * {
+ *   initialStampPlacer: ({content, stamp}) => {
+ *     return `# GENERATED ${stamp}\n# DO NOT EDIT BY HAND\n${content}`;
+ *   },
+ *   initialStampRemover: ({content, stamp}) => {
+ *     const contentLineList = content.split('\n');
+ *     const indexOfStamp = contentLineList.findIndex(
+ *       line => line.includes(stamp),
+ *     );
+ *
+ *     contentLineList.splice(indexOfStamp, 2);
+ *     return contentLineList.join('\n');
+ *   },
+ * }
+ * ```
+ */
+export type TStampRemover = TFormatter;
+````
+
+<!-- <DOCEND TARGET TStampRemover> -->
 <!-- <DOCSTART TARGET TApplyStampResult> -->
 
 ```typescript

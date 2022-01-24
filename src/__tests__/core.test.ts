@@ -271,6 +271,7 @@ describe("`applyStamp`: `initialStampPlacer`", () => {
         "status": "ERROR",
       }
     `);
+    // Modified the stamp
     expect(
       applyStamp({
         dependencyContentList: [],
@@ -438,6 +439,137 @@ describe("`applyStamp`: `initialStampPlacer`", () => {
   });
 });
 
+describe("`applyStamp`: `initialStampPlacer` and `initialStampRemover` combo", () => {
+  test("Updates stamp gracefully", () => {
+    const placerAndRemoverCombo: Partial<TApplyStampParam> = {
+      initialStampPlacer: ({ content, stamp }) => {
+        expect(content).not.toContain(stamp);
+        return `# HELLO\n# STAMP ${stamp}\n# BYE\n${content}`;
+      },
+      initialStampRemover: ({ content, stamp }) => {
+        expect(content).toContain(stamp);
+        const lineList = content.split("\n");
+        const indexOfStamp = lineList.findIndex((line) => line.includes(stamp));
+
+        lineList.splice(indexOfStamp - 1, 3);
+        return lineList.join("\n");
+      },
+    };
+
+    // Apply default stamp
+    const result1 = applyStamp({
+      dependencyContentList: [],
+      targetContent: "cool",
+    });
+
+    expect(result1).toMatchInlineSnapshot(`
+      Object {
+        "newContent": "/* @generated CodeStamp<<72d119a0890bc161b31f799bf5a4f5fe>> */
+      cool",
+        "newStamp": "CodeStamp<<72d119a0890bc161b31f799bf5a4f5fe>>",
+        "status": "NEW",
+      }
+    `);
+
+    // Default stamp should be moved and new custom stamp is added
+    const neverCalledRemover = jest.fn();
+    const result2 = applyStamp({
+      ...placerAndRemoverCombo,
+      dependencyContentList: [],
+      targetContent: throwIfNoNewContent(result1).newContent,
+      initialStampRemover: neverCalledRemover,
+    });
+
+    expect(result2).toMatchInlineSnapshot(`
+      Object {
+        "newContent": "# HELLO
+      # STAMP CodeStamp<<0de6ca56023da7eb34375b2cc54465a5>>
+      # BYE
+      cool",
+        "newStamp": "CodeStamp<<0de6ca56023da7eb34375b2cc54465a5>>",
+        "oldStamp": "CodeStamp<<72d119a0890bc161b31f799bf5a4f5fe>>",
+        "status": "UPDATE",
+      }
+    `);
+    expect(neverCalledRemover).not.toHaveBeenCalled();
+
+    // Updates the banner comment to a new format
+    const result3 = applyStamp({
+      ...placerAndRemoverCombo,
+      dependencyContentList: [],
+      targetContent: throwIfNoNewContent(result2).newContent,
+      initialStampPlacer: ({ content, stamp }) => {
+        expect(content).not.toContain(stamp);
+        return `# SOMETHING NEW\n# STAMP ${stamp}\n# AGAIN\n${content}`;
+      },
+    });
+
+    expect(result3).toMatchInlineSnapshot(`
+      Object {
+        "newContent": "# SOMETHING NEW
+      # STAMP CodeStamp<<931e066b2ad2df72b2c5470a606ab1b4>>
+      # AGAIN
+      cool",
+        "newStamp": "CodeStamp<<931e066b2ad2df72b2c5470a606ab1b4>>",
+        "oldStamp": "CodeStamp<<0de6ca56023da7eb34375b2cc54465a5>>",
+        "status": "UPDATE",
+      }
+    `);
+
+    // Updates the banner comment back to the first format
+    const result4 = applyStamp({
+      ...placerAndRemoverCombo,
+      dependencyContentList: ["a", "b", "c"],
+      targetContent: throwIfNoNewContent(result3).newContent,
+    });
+
+    expect(result4).toMatchInlineSnapshot(`
+      Object {
+        "newContent": "# HELLO
+      # STAMP CodeStamp<<8387ce9f2057a2ce97ea5e788c2af41d>>
+      # BYE
+      cool",
+        "newStamp": "CodeStamp<<8387ce9f2057a2ce97ea5e788c2af41d>>",
+        "oldStamp": "CodeStamp<<931e066b2ad2df72b2c5470a606ab1b4>>",
+        "status": "UPDATE",
+      }
+    `);
+
+    // Deterministic: back to the first custom stamp
+    const result5 = applyStamp({
+      ...placerAndRemoverCombo,
+      dependencyContentList: [],
+      targetContent: throwIfNoNewContent(result4).newContent,
+    });
+
+    expect(throwIfNoNewContent(result5).newContent).toStrictEqual(
+      throwIfNoNewContent(result2).newContent
+    );
+
+    // Deterministic: back to the default stamp
+    const result6 = applyStamp({
+      ...placerAndRemoverCombo,
+      dependencyContentList: [],
+      targetContent: throwIfNoNewContent(result4).newContent,
+      initialStampPlacer: undefined,
+    });
+
+    expect(result6).toMatchInlineSnapshot(`
+      Object {
+        "newContent": "/* @generated CodeStamp<<72d119a0890bc161b31f799bf5a4f5fe>> */
+      cool",
+        "newStamp": "CodeStamp<<72d119a0890bc161b31f799bf5a4f5fe>>",
+        "oldStamp": "CodeStamp<<8387ce9f2057a2ce97ea5e788c2af41d>>",
+        "status": "UPDATE",
+      }
+    `);
+
+    expect(throwIfNoNewContent(result6).newContent).toStrictEqual(
+      throwIfNoNewContent(result1).newContent
+    );
+  });
+});
+
 describe("`applyStamp`: `contentTransformerForHashing`", () => {
   test("`contentTransformerForHashing` allows the stamp to be unaffected by formatting", () => {
     const input: TApplyStampParam = {
@@ -467,6 +599,7 @@ describe("`applyStamp`: `contentTransformerForHashing`", () => {
       }
     `);
 
+    // Whitespaces are ignored
     const result2 = applyStamp({
       ...input,
       targetContent: `
@@ -733,13 +866,15 @@ describe("E2E", () => {
       }
     `);
 
-    // NOTE: The stamp placement CAN'T BE UPDATED from custom -> custom
-    // Because we don't have enough information to deterministically revert or restore the content
+    // Without a `initialStampRemover` present, the stamp placement
+    // cannot be updated from custom -> custom because we don't have
+    // enough information to deterministically revert or restore the
+    // content
     const result3 = applyStamp({
       dependencyContentList: ["cool", "cool"],
       targetContent: output2,
       initialStampPlacer: ({ content, stamp }) =>
-        `// THIS WON'T BE APPLIED ${stamp}\n${content}`,
+        `// THIS WON'T BE APPLIED UNLESS YOU SPECIFY \`initialStampRemover\` ${stamp}\n${content}`,
     });
     const output3 = throwIfNoNewContent(result3).newContent;
 

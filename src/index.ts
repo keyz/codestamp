@@ -1,6 +1,12 @@
 import { applyStamp } from "./core";
 import { runner } from "./runner";
-import type { TApplyStampParam, TApplyStampResult, TStampPlacer } from "./core";
+import type {
+  TApplyStampParam,
+  TApplyStampResult,
+  TStampPlacer,
+  TStampRemover,
+  TFormatter,
+} from "./core";
 import type {
   TRunnerParam,
   TRunnerResult,
@@ -16,4 +22,6 @@ export type {
   TApplyStampParam,
   TApplyStampResult,
   TStampPlacer,
+  TStampRemover,
+  TFormatter,
 };

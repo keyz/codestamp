@@ -4,7 +4,7 @@ import Chalk from "chalk";
 import { diff } from "jest-diff";
 import { applyStamp } from "./core";
 import { globToItemList, assertNever } from "./utils";
-import type { TApplyStampResult, TStampPlacer } from "./core";
+import type { TApplyStampResult, TStampPlacer, TStampRemover } from "./core";
 
 // <DOCSTART SOURCE TRunnerParam>
 /**
@@ -27,6 +27,11 @@ export type TRunnerParam = {
    * See {@link TStampPlacer}.
    */
   initialStampPlacer?: TStampPlacer;
+  /**
+   * Use it to remove (and update) a previously applied **custom**
+   * stamp. See {@link TStampRemover} and {@link TStampPlacer}.
+   */
+  initialStampRemover?: TStampRemover;
   /**
    * Use it to ignore insignificant changes and make the stamp less
    * sensitive. See {@link TRunnerFileTransformerForHashing}
@@ -54,6 +59,7 @@ export type TRunnerParam = {
   silent?: boolean;
 };
 // <DOCEND SOURCE TRunnerParam>
+
 // <DOCSTART SOURCE TRunnerFileTransformerForHashing>
 /**
  * Use it to ignore insignificant changes and make the stamp less
@@ -107,6 +113,7 @@ type TRunnerFileTransformerParam =
       absoluteFilePath: string;
     };
 // <DOCEND SOURCE TRunnerFileTransformerForHashing>
+
 // <DOCSTART SOURCE TRunnerResult>
 type DistributiveIntersection<Union, T> = Union extends {} ? Union & T : never;
 
@@ -150,11 +157,13 @@ export async function runner({
   dependencyGlobList,
   shouldWrite,
   initialStampPlacer,
+  initialStampRemover,
   fileTransformerForHashing = ({ content }) => content,
   cwd = process.cwd(),
   silent = false,
 }: TRunnerParam): Promise<TRunnerResult> {
   // <DOCEND SOURCE runner>
+
   const absoluteTargetFilePath = path.resolve(cwd, targetFilePath);
   const currentFileContent = await fs.promises.readFile(
     absoluteTargetFilePath,
@@ -175,6 +184,7 @@ export async function runner({
     ),
     targetContent: currentFileContent,
     initialStampPlacer,
+    initialStampRemover,
     contentTransformerForHashing: ({ content, stamp }) =>
       fileTransformerForHashing({
         type: "TARGET",

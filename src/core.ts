@@ -131,6 +131,50 @@ const defaultInitialStampPlacer: TFormatter = ({ content, stamp }) =>
  *   },
  * }
  * ```
+ *
+ * @example Recommended: place invisible markers to specify the range
+ * of insertion and deletion. This is a much more robust approach.
+ *
+ * ```typescript
+ * // First, put START and END markers in your target file, such as:
+ * // <!-- <CODESTAMP START> -->
+ * //
+ * // <!-- <CODESTAMP END> -->
+ *
+ * {
+ *   initialStampPlacer: ({ content, stamp }) => {
+ *     const lineList = content.split("\n");
+ *     const startIndex = lineList.findIndex((line) =>
+ *       line.includes(`<!-- <CODESTAMP START> -->`)
+ *     );
+ *     const endIndex = lineList.findIndex((line) =>
+ *       line.includes(`<!-- <CODESTAMP END> -->`)
+ *     );
+ *     // Assert both `startIndex` and `endIndex` !== -1
+ *
+ *     lineList.splice(
+ *       startIndex + 1,
+ *       0,
+ *       `here's the stamp: ${stamp}`
+ *     );
+ *
+ *     return lineList.join("\n");
+ *   },
+ *   initialStampRemover: ({ content, stamp }) => {
+ *     const lineList = content.split("\n");
+ *     const startIndex = lineList.findIndex((line) =>
+ *       line.includes(`<!-- <CODESTAMP START> -->`)
+ *     );
+ *     const endIndex = lineList.findIndex((line) =>
+ *       line.includes(`<!-- <CODESTAMP END> -->`)
+ *     );
+ *     // Assert both `startIndex` and `endIndex` !== -1
+ *
+ *     lineList.splice(startIndex + 1, endIndex - startIndex - 1);
+ *     return lineList.join("\n");
+ *   },
+ * }
+ * ```
  */
 export type TStampRemover = TFormatter;
 // <DOCEND SOURCE TStampRemover>

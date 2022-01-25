@@ -77,8 +77,9 @@ $ npm install -g codestamp
 - [`examples/basic`](examples/basic/package.json): Simple stamping via the CLI.
 - [`examples/template-python`](examples/template-python/package.json): Use template string to add a Python banner comment via the CLI.
 - [`examples/dynamic-json`](examples/dynamic-json/stamp.js): Use the API to programmatically insert the stamp as a JSON field (via `initialStampPlacer`), and ignore insignificant spaces and new lines in JSON (via `fileTransformerForHashing`).
-- 🙋 [`scripts/generate-docs.ts`](scripts/generate-docs.ts): The README file you're reading is generated and verified by `codestamp`!
-  - And here's the stamp: `CodeStamp<<cd21600e1a6bd8f42c99f648986959c1>>`
+- 🙋 [`scripts/generate-docs.ts`](scripts/generate-docs.ts): The README file you're reading is generated and verified by `codestamp`! <!-- <CODESTAMP START> -->
+  - And here's the stamp: `CodeStamp<<d508062897d6b3afb002faedb60e864e>>`
+  <!-- <CODESTAMP END> -->
 
 ### Recommended workflow
 
@@ -571,6 +572,50 @@ Specify how the initial stamp should be removed and updated.
  *
  *     contentLineList.splice(indexOfStamp, 2);
  *     return contentLineList.join('\n');
+ *   },
+ * }
+ * ```
+ *
+ * @example Recommended: place invisible markers to specify the range
+ * of insertion and deletion. This is a much more robust approach.
+ *
+ * ```typescript
+ * // First, put START and END markers in your target file, such as:
+ * // <!-- <CODESTAMP START> -->
+ * //
+ * // <!-- <CODESTAMP END> -->
+ *
+ * {
+ *   initialStampPlacer: ({ content, stamp }) => {
+ *     const lineList = content.split("\n");
+ *     const startIndex = lineList.findIndex((line) =>
+ *       line.includes(`<!-- <CODESTAMP START> -->`)
+ *     );
+ *     const endIndex = lineList.findIndex((line) =>
+ *       line.includes(`<!-- <CODESTAMP END> -->`)
+ *     );
+ *     // Assert both `startIndex` and `endIndex` !== -1
+ *
+ *     lineList.splice(
+ *       startIndex + 1,
+ *       0,
+ *       `here's the stamp: ${stamp}`
+ *     );
+ *
+ *     return lineList.join("\n");
+ *   },
+ *   initialStampRemover: ({ content, stamp }) => {
+ *     const lineList = content.split("\n");
+ *     const startIndex = lineList.findIndex((line) =>
+ *       line.includes(`<!-- <CODESTAMP START> -->`)
+ *     );
+ *     const endIndex = lineList.findIndex((line) =>
+ *       line.includes(`<!-- <CODESTAMP END> -->`)
+ *     );
+ *     // Assert both `startIndex` and `endIndex` !== -1
+ *
+ *     lineList.splice(startIndex + 1, endIndex - startIndex - 1);
+ *     return lineList.join("\n");
  *   },
  * }
  * ```

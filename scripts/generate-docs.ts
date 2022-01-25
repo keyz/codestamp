@@ -61,45 +61,37 @@ async function stamp({
     dependencyGlobList: dependencyPathList,
     shouldWrite,
     initialStampPlacer: ({ content, stamp }) => {
-      const contentLineList = content.split("\n");
-      const indexOfExamples = contentLineList.findIndex((line) =>
-        line.startsWith("### More Examples")
+      const lineList = content.split("\n");
+      const startIndex = lineList.findIndex((line) =>
+        line.includes(`<!-- <CODESTAMP START> -->`)
       );
-
-      invariant(indexOfExamples !== -1, `Couldn't found examples`);
-
-      const firstBulletPointIndex = contentLineList.findIndex(
-        (line, index) => line.startsWith("- ") && index > indexOfExamples
+      invariant(startIndex !== -1, `Couldn't found start line`);
+      const endIndex = lineList.findIndex((line) =>
+        line.includes(`<!-- <CODESTAMP END> -->`)
       );
-      let insertIndex = firstBulletPointIndex;
-      invariant(insertIndex !== -1, `Couldn't found bullet point`);
+      invariant(endIndex !== -1, `Couldn't found end line`);
 
-      while (true) {
-        if (!contentLineList[insertIndex]!.startsWith("- ")) {
-          break;
-        }
-        insertIndex++;
-      }
-
-      contentLineList.splice(
-        insertIndex,
+      lineList.splice(
+        startIndex + 1,
         0,
-        `- 🙋 [\`scripts/generate-docs.ts\`](scripts/generate-docs.ts): The README file you're reading is generated and verified by \`codestamp\`!`,
         `  - And here's the stamp: \`${stamp}\``
       );
 
-      return contentLineList.join("\n");
+      return lineList.join("\n");
     },
     initialStampRemover: ({ content, stamp }) => {
-      const contentLineList = content.split("\n");
-      const indexOfStamp = contentLineList.findIndex((line) =>
-        line.includes(stamp)
+      const lineList = content.split("\n");
+      const startIndex = lineList.findIndex((line) =>
+        line.includes(`<!-- <CODESTAMP START> -->`)
       );
+      invariant(startIndex !== -1, `Couldn't found start line`);
+      const endIndex = lineList.findIndex((line) =>
+        line.includes(`<!-- <CODESTAMP END> -->`)
+      );
+      invariant(endIndex !== -1, `Couldn't found end line`);
 
-      invariant(indexOfStamp !== -1, `Couldn't found stamp`);
-
-      contentLineList.splice(indexOfStamp - 1, 2);
-      return contentLineList.join("\n");
+      lineList.splice(startIndex + 1, endIndex - startIndex - 1);
+      return lineList.join("\n");
     },
     fileTransformerForHashing: (param) => {
       if (param.type === "DEPENDENCY") {

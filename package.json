@@ -28,7 +28,8 @@
     "docs:check": "ts-node --transpile-only scripts/generate-docs.ts",
     "prettier:write": "prettier --write \"**/*.{js,json,md,ts}\" --ignore-path .gitignore",
     "prettier:check": "prettier --check \"**/*.{js,json,md,ts}\" --ignore-path .gitignore",
-    "legit": "npm run build && npm run typecheck && npm run test && npm run docs:check && npm run prettier:check"
+    "legit": "npm run build && npm run typecheck && npm run test && npm run docs:check && npm run prettier:check",
+    "prepare": "husky install"
   },
   "dependencies": {
     "chalk": "^4.1.2",
@@ -43,6 +44,7 @@
     "@types/glob": "^7.2.0",
     "@types/jest": "^27.4.0",
     "@types/shelljs": "^0.8.11",
+    "husky": "^7.0.4",
     "jest": "^27.4.7",
     "microbundle": "^0.14.2",
     "prettier": "^2.5.1",

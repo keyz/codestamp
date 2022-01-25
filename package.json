@@ -1,6 +1,6 @@
 {
   "name": "codestamp",
-  "version": "1.0.0-beta.4",
+  "version": "1.0.0",
   "description": "A language-agnostic tool for signing and verifying your (codegen'd) files and contents.",
   "source": "src/index.ts",
   "bin": {
